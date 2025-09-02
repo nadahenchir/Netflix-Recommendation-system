@@ -1,0 +1,53 @@
+# Install only once
+install.packages(c("recommenderlab", "tidyverse", "Matrix", "recosystem", "ggplot2"))
+#Load packages
+library(recommenderlab)   # Core package for recommendation systems
+library(tidyverse)        # Data manipulation and plotting
+library(Matrix)           # Sparse matrices
+library(recosystem)       # Matrix factorization (model-based CF)
+library(ggplot2)          # For plotting
+#Load the dataset
+data("MovieLense")        # built-in dataset in recommenderlab
+ratingMat <- MovieLense   
+ratingMat                
+# Small heatmap of first 50 users × 50 movies
+image(ratingMat[1:50, 1:50])  
+
+# Histogram of all ratings
+hist(getRatings(ratingMat),
+     breaks = 20,
+     main = "Rating Distribution",
+     xlab = "Stars")
+#Split data for training and testing
+set.seed(42)  
+scheme <- evaluationScheme(
+  data = ratingMat,
+  method = "split",
+  train = 0.8,       # 80% of data for training
+  given = -5,        # kept 5 ratings per user for testing
+  goodRating = 4     # ratings >= 4 are "good"
+)
+#Build item-based and user-based CF models
+alg_ibcf <- list(
+  "IBCF_cos_k50"  = list(name = "IBCF", param = list(method = "Cosine", k = 50))
+)
+
+res_ibcf <- evaluate(scheme, alg_ibcf, n = c(5, 10, 20))
+avg(res_ibcf)  # shows Precision, Recall, NDCG
+alg_ubcf <- list(
+  "UBCF_cos_nn50" = list(name = "UBCF", param = list(method = "Cosine", nn = 50))
+)
+
+res_ubcf <- evaluate(scheme, alg_ubcf, n = c(5,10,20))
+avg(res_ubcf)
+
+#train final model
+final_model <- Recommender(ratingMat, method = "IBCF", 
+                           parameter = list(method = "Cosine", k = 50))
+
+# Example: Top-10 recommendations for first 5 users
+topn <- predict(final_model, ratingMat[1:5,], type = "topNList", n = 10)
+as(topn, "list")  # shows recommended movies
+
+
+
